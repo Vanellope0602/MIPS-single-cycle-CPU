@@ -74,8 +74,30 @@ module datapath(  // inputs are control signals , datapath and contorller module
 		wire [31:0] mem_to_reg_out;// connect directly to the input port of WriteData of GPR
 
 		wire [31:0] load_half_word;
-		assign load_half_word = (alu_result[1] == 0)? {16'h0000, mem_out[15:0]} : {16'h0000, mem_out[31:16]};
+		assign load_half_word = (alu_result[1] == 0 && mem_out[15] == 0)? {16'h0000, mem_out[15:0]} : 
+					(alu_result[1] == 0 && mem_out[15] == 1)? {16'hffff, mem_out[15:0]} :
+					(alu_result[1] == 1 && mem_out[31] == 0)? {16'h0000, mem_out[31:16]}:
+					(alu_result[1] == 1 && mem_out[31] == 1)? {16'hffff, mem_out[31:16]}: 0;
+		/*
+		* if you wanna add lb, lbu, lhu, then change the wire load half word
+		****** load byte *******
+		assign load_byte = (alu_result[1:0] == 0 )? {24{mem_out[7]}, mem_out[7:0]} : 
+				(alu_result[1:0] == 1 )? {24{mem_out[15]}, mem_out[15:8]} :
+				(alu_result[1:0] == 2)? {24{mem_out[23]}, mem_out[23:16]}:
+				(alu_result[1:0] == 3)? {24{mem_out[31]}, mem_out[31:24]}: 0;
 
+		****** load byte unsigned *******
+		assign load_byte_unsigned = (alu_result[1:0] == 0 )? {24'h000000, mem_out[7:0]} : 
+					(alu_result[1:0] == 1 )? {24'h000000, mem_out[15:8]} :
+					(alu_result[1:0] == 2)? {24'h000000, mem_out[23:16]}:
+					(alu_result[1:0] == 3)? {24'h000000, mem_out[31:24]}: 0;
+
+		****** laod half word unsigned *****
+		assign laod half word unsigned = (alu_result[1] == 0 )? {16'h0000, mem_out[15:0]} : 
+						(alu_result[1] == 1 )? {16'h0000, mem_out[31:16]}: 0;
+
+
+		*/
 	IFU Instr_fetch (
 		 .if_beq(nPC_sel), //nPC_sel
 		 .zero(zero), 
