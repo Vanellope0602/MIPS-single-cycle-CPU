@@ -18,6 +18,20 @@
 // Additional Comments: 
 //
 //////////////////////////////////////////////////////////////////////////////////
+`define R 		(opcode == 6'b000000)  // calculation type instr
+`define addu	(`R & (funct == 6'b100001))
+`define subu	(`R & (funct == 6'b100011))
+`define ori     (opcode == 6'b001101)
+`define lw      (opcode == 6'b100011)
+`define sw      (opcode == 6'b101011)
+`define beq     (opcode == 6'b000100)
+`define lui     (opcode == 6'b001111)
+`define lh      (opcode == 6'b100001)
+`define slt     (`R & (funct == 6'b101010))
+`define orr      (`R & (funct == 6'b100101)) //  it is or , but to avoid the hazard with or keyword in verilog 
+`define j	    (opcode == 6'b000010)
+`define jal     (opcode == 6'b000011)
+`define jr      (`R & (funct == 6'b001000))
 module ctrl(
     input [5:0] opcode,
     input [5:0] funct,
@@ -33,32 +47,28 @@ module ctrl(
 	 output if_jr
     );
 	 
-	 assign RegDst = (opcode ==6'b000000 && (funct == 6'b100001 || funct == 6'b100011 || funct == 6'b001000 || funct == 6'b101010) ) ? 1:
-							(opcode == 6'b000011)? 2: 0 ; //addu, subu,jr, slt == 1;jal == 2,write $31 register
+	 assign RegDst = (`addu || `subu || `slt || `orr) ? 1:
+			(`jal)? 2: 0 ; //addu, subu, == 1, jal == 2,write $31 register
 							
 							
-	 assign ALUSrc = (opcode == 6'b001101 || opcode ==6'b100011 || opcode ==6'b101011 || opcode ==6'b001111 || opcode == 6'b100001)? 1:0; //ori,lw,sw,lui,lh
+	 assign ALUSrc = (`ori|| `lw || `sw || `lui || `lh )? 1:0; //ori,lw,sw, lui
+	 assign MemtoReg = (`lw) ? 1:  // lw
+			   (`jal )? 2: 
+			   (`lh )? 3: 0; // jal ->2, PC+4 into $31
 	 
-	 assign MemtoReg = (opcode == 6'b100011) ? 1:  // lw
-							 (opcode == 6'b000011 )? 2: // jal ->2, PC+4 into $31
-							 (opcode == 6'b100001)? 3 : 0;  // load half word 
+	 assign RegWrite = (`addu || `subu || `ori || `lw || `lui || `jal || `lh || `slt || `orr) ? 1 : 0;//jal is remained to be modified?
+	 assign MemWrite = (`sw) ? 1:0;  //sw
+	 assign nPC_sel = (`beq) ? 1:0; // beq
+	 assign if_jal = (`jal)? 1:0;
+	 assign if_jr = (`jr)? 1:0;
 	 
-	 assign RegWrite = ( (opcode ==6'b000000 && (funct == 6'b100001 || funct == 6'b100011 || funct == 6'b101010)) || opcode == 6'b001101
-								|| opcode == 6'b100011 || opcode == 6'b001111  //lui
-								|| opcode == 6'b000011 || opcode == 6'b100001) ? 1:0;  //addu,subu,ori, slt,lw,lui, jal, jal is remained to be modified
-	 
-	 assign MemWrite = (opcode == 6'b101011) ? 1:0;  //sw
-	 assign nPC_sel = (opcode == 6'b000100) ? 1:0; // beq
-	 assign if_jal = (opcode == 6'b000011)? 1:0;
-	 assign if_jr = (opcode == 6'b000000 && funct == 6'b001000)? 1:0;
-	 
-	 assign Ext_op = (opcode == 6'b100011 || opcode == 6'b101011 || opcode == 6'b100001)? 1: // lw, sw, lh
-						  (opcode == 6'b001111)? 2:0;  // lui , 2, to high 
+	 assign Ext_op = (`lw || `sw || `lh)? 1: // lw, sw
+			(`lui)? 2:0;  // lui , 2, to high 
 						  
-	 assign ALUctr = ((opcode == 6'b000000 && funct == 6'b100011) || opcode == 6'b000100)? 1: // subu, beq
-						  (opcode == 6'b001101)? 2: // ori ,2
-						  (opcode == 6'b001111)? 3: // lui
-						  (opcode == 6'b000000 && funct == 6'b101010 )? 4:0 ; // slt, set 1 if A < B 
+	 assign ALUctr = (`subu || `beq)? 1: // subu, beq
+			(`ori || `orr)? 2: // ori ,2
+			 (`lui)? 3: // lui, 
+			 (`slt)? 4:0 ; // slt, set 1 if A < B 
 	 
 
 endmodule
